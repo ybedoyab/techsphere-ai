@@ -11,6 +11,8 @@ from pathlib import Path
 import threading
 import time
 from datetime import datetime
+import io
+import csv
 
 from src.api.upload_handler import upload_handler
 from src.utils.logger import LoggerFactory
@@ -394,6 +396,93 @@ def get_confusion_matrix():
         
     except Exception as e:
         return jsonify({'error': f'Error obteniendo matriz de confusión: {str(e)}'}), 500
+
+# ====================== PREDICCIONES ======================
+@app.route('/api/predictions', methods=['GET'])
+def get_predictions():
+    """Generar predicciones para el dataset cargado usando el modelo entrenado"""
+    try:
+        from sklearn.preprocessing import LabelEncoder
+        import pandas as pd
+        import joblib
+
+        models_dir = Path("models")
+        model_path = models_dir / "medical_classifier.joblib"
+        vectorizer_path = models_dir / "tfidf_vectorizer.joblib"
+
+        if not model_path.exists() or not vectorizer_path.exists():
+            return jsonify({'error': 'Modelo no disponible. Entrena el modelo primero.'}), 404
+
+        # Cargar modelo y vectorizador
+        model = joblib.load(model_path)
+        vectorizer = joblib.load(vectorizer_path)
+
+        # Buscar dataset más reciente
+        data_dir = Path("data/raw")
+        csv_files = list(data_dir.glob("*.csv"))
+        if not csv_files:
+            return jsonify({'error': 'No hay dataset disponible.'}), 404
+        latest_file = max(csv_files, key=os.path.getctime)
+
+        # Cargar dataset
+        df = pd.read_csv(latest_file, sep=';')
+        if not {'title', 'abstract', 'group'}.issubset(df.columns):
+            return jsonify({'error': 'El dataset debe contener columnas title, abstract y group'}), 400
+
+        # Preparar textos y predecir
+        combined_text = (df['title'].fillna('') + ' ' + df['abstract'].fillna('')).str.lower().str.replace(r'[^\w\s]', ' ', regex=True)
+        X = vectorizer.transform(combined_text)
+        y_pred = model.predict(X)
+
+        predictions = []
+        for idx, row in df.iterrows():
+            predictions.append({
+                'title': str(row.get('title', '')),
+                'abstract': str(row.get('abstract', '')),
+                'group': str(row.get('group', '')),
+                'group_predicted': str(y_pred[idx])
+            })
+
+        return jsonify({'success': True, 'predictions': predictions})
+    except Exception as e:
+        return jsonify({'error': f'Error generando predicciones: {str(e)}'}), 500
+
+
+@app.route('/api/predictions-csv', methods=['GET'])
+def download_predictions_csv():
+    """Descargar CSV con title, abstract, group, group_predicted"""
+    try:
+        # Reutilizar la lógica de get_predictions
+        with app.test_request_context():
+            resp = get_predictions()
+            # Flask can return (response, status), handle both
+            if isinstance(resp, tuple):
+                payload, status = resp
+                if status != 200:
+                    return resp
+                data = payload.get_json()
+            else:
+                data = resp.get_json()
+
+        if not data or not data.get('success'):
+            return jsonify({'error': 'No se pudieron generar predicciones'}), 500
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['title', 'abstract', 'group', 'group_predicted'])
+        for p in data['predictions']:
+            writer.writerow([
+                p.get('title', ''),
+                p.get('abstract', ''),
+                p.get('group', ''),
+                p.get('group_predicted', '')
+            ])
+
+        mem = io.BytesIO(output.getvalue().encode('utf-8'))
+        mem.seek(0)
+        return send_file(mem, as_attachment=True, download_name='predictions.csv', mimetype='text/csv')
+    except Exception as e:
+        return jsonify({'error': f'Error descargando CSV: {str(e)}'}), 500
 
 if __name__ == '__main__':
     print("🚀 Iniciando servidor API...")

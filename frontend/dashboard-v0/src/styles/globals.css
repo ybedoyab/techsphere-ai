@@ -36,7 +36,29 @@ body {
   left: 0;
   top: 0;
   z-index: 1000;
+  overflow-y: auto;
 }
+
+/* Scrollbar subtle styling */
+.sidebar::-webkit-scrollbar { width: 8px; }
+.sidebar::-webkit-scrollbar-track { background: #0f172a; }
+.sidebar::-webkit-scrollbar-thumb { background: #334155; border-radius: 8px; }
+
+.reset-button {
+  margin-top: 12px;
+  width: 100%;
+  background: #ef4444;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.reset-button:hover { background: #dc2626; transform: translateY(-1px); }
+.reset-button:active { transform: translateY(0); }
 
 .sidebar-header {
   padding: 24px;
@@ -1074,4 +1096,70 @@ body {
 
 .model-info.empty .model-name {
   color: #94a3b8;
+}
+
+/* Matriz de confusión */
+.confusion-matrix {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 32px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.confusion-matrix h3 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.matrix-wrapper {
+  overflow-x: auto;
+}
+
+.matrix-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.matrix-table th,
+.matrix-table td {
+  border: 1px solid #e2e8f0;
+  padding: 10px 12px;
+  text-align: center;
+  background: #f8fafc;
+}
+
+.matrix-table th.axis {
+  background: #eef2f7;
+  color: #334155;
+  font-weight: 700;
+}
+
+.matrix-table th.corner {
+  background: transparent;
+  border: none;
+}
+
+.matrix-table td.cell.diag {
+  background: #dbeafe;
+  color: #1e3a8a;
+  font-weight: 700;
+}
+
+.matrix-table td.total,
+.matrix-table td.total.all,
+.matrix-table th.axis.total {
+  background: #fff7ed;
+  color: #7c2d12;
+  font-weight: 700;
+}
+
+.matrix-table td.total.all {
+  background: #fef3c7;
 }

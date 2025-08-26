@@ -1,5 +1,24 @@
 # 🧬 Challenge de Clasificación Biomédica con IA
 
+## 📑 Índice Rápido
+- [Descripción del Proyecto](#-descripción-del-proyecto)
+- [Arquitectura de la Solución](#-arquitectura-de-la-solución)
+- [Características Principales](#-características-principales)
+- [Estructura del Proyecto](#-estructura-del-proyecto)
+- [Tecnologías Utilizadas](#-tecnologías-utilizadas)
+- [Métricas de Rendimiento](#-métricas-de-rendimiento)
+- [Instalación y Uso](#-instalación-y-uso)
+- [Uso de la Aplicación](#-uso-de-la-aplicación)
+- [Configuración de API](#-configuración-de-api)
+- [Análisis Exploratorio](#-análisis-exploratorio)
+- [Justificación Técnica](#-justificación-técnica)
+- [Validación y Evaluación](#-validación-y-evaluación)
+- [Mejoras Futuras](#-mejoras-futuras)
+- [Referencias](#-referencias)
+- [Contribución](#-contribución)
+- [Licencia](#-licencia)
+- [Contacto](#-contacto)
+
 ## 📋 Descripción del Proyecto
 
 Este proyecto implementa una solución de Inteligencia Artificial para la clasificación automática de literatura médica. El sistema es capaz de asignar artículos médicos a uno o varios dominios médicos utilizando únicamente el título y el abstract como insumo.
@@ -172,7 +191,13 @@ npm run dev
 - **Matriz de confusión**: Visualización detallada de predicciones
 - **Análisis del dataset**: Estadísticas y distribución de clases
 
-### 4. Probar Clasificación
+### 4. Predicciones y Descarga de CSV
+- **Vista de Predicciones**: tabla paginada con búsqueda y filtro por dominio.
+- **Cálculo de precisión**: se considera correcta si el grupo predicho coincide con cualquiera de los grupos reales cuando estos vienen separados por `|` (multi‑label), por ejemplo `neurological|hepatorenal`.
+- **Descarga CSV**: botón "Descargar CSV" genera un archivo con columnas: `title`, `abstract`, `group`, `group_predicted`.
+- **Origen de datos**: las predicciones se calculan con el modelo entrenado sobre el último CSV subido.
+
+### 5. Probar Clasificación
 - En la sección "Clasificación de Demostración"
 - Ingresa un título y abstract médico
 - Haz clic en "Clasificar Texto" para obtener la predicción
@@ -186,6 +211,8 @@ npm run dev
 - `POST /api/stop-training`: Detener entrenamiento
 - `GET /api/model-metrics`: Métricas del modelo
 - `GET /api/confusion-matrix`: Matriz de confusión
+- `GET /api/predictions`: Predicciones calculadas para el CSV subido (JSON)
+- `GET /api/predictions-csv`: Descarga de CSV con `title, abstract, group, group_predicted`
 
 ### Configuración
 El archivo `frontend/dashboard-v0/src/config/api.config.ts` contiene la configuración de la API:
@@ -195,6 +222,10 @@ export const API_CONFIG = {
   ENDPOINTS: {
     UPLOAD_DATASET: '/api/upload-dataset',
     START_TRAINING: '/api/start-training',
+    MODEL_METRICS: '/api/model-metrics',
+    CONFUSION_MATRIX: '/api/confusion-matrix',
+    PREDICTIONS: '/api/predictions',
+    PREDICTIONS_CSV: '/api/predictions-csv'
     // ... otros endpoints
   }
 }

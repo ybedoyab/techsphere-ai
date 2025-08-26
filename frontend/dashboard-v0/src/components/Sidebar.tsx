@@ -11,59 +11,22 @@ interface SidebarProps {
     name: string
     records: number
   }
+  onReset?: () => void
 }
 
-export default function Sidebar({ activeSection, onSectionChange, hasDataset, isModelTrained, datasetInfo }: SidebarProps) {
+export default function Sidebar({ activeSection, onSectionChange, hasDataset, isModelTrained, datasetInfo, onReset }: SidebarProps) {
   const menuItems = [
-    {
-      id: 'overview',
-      label: 'Resumen',
-      icon: '📊',
-      description: 'Vista general del sistema',
-      requiresDataset: false
-    },
-    {
-      id: 'upload',
-      label: 'Subir Dataset',
-      icon: '📁',
-      description: 'Cargar archivos CSV',
-      requiresDataset: false
-    },
-    {
-      id: 'training',
-      label: 'Entrenamiento',
-      icon: '🤖',
-      description: 'Entrenar modelo',
-      requiresDataset: true
-    },
-    {
-      id: 'metrics',
-      label: 'Métricas',
-      icon: '📈',
-      description: 'Rendimiento del modelo',
-      requiresDataset: true,
-      requiresTraining: true
-    },
-    {
-      id: 'analysis',
-      label: 'Análisis',
-      icon: '🔍',
-      description: 'Análisis de datos',
-      requiresDataset: true,
-      requiresTraining: true
-    },
-    {
-      id: 'demo',
-      label: 'Demo',
-      icon: '🎯',
-      description: 'Clasificación en tiempo real',
-      requiresDataset: true,
-      requiresTraining: true
-    }
+    { id: 'overview', label: 'Resumen', icon: '📊', description: 'Vista general del sistema', requiresDataset: false },
+    { id: 'upload', label: 'Subir Dataset', icon: '📁', description: 'Cargar archivos CSV', requiresDataset: false },
+    { id: 'training', label: 'Entrenamiento', icon: '🤖', description: 'Entrenar modelo', requiresDataset: true },
+    { id: 'metrics', label: 'Métricas', icon: '📈', description: 'Rendimiento del modelo', requiresDataset: true, requiresTraining: true },
+    { id: 'analysis', label: 'Análisis', icon: '🔍', description: 'Análisis de datos', requiresDataset: true, requiresTraining: true },
+    { id: 'demo', label: 'Demo', icon: '🎯', description: 'Clasificación en tiempo real', requiresDataset: true, requiresTraining: true },
+    { id: 'predictions', label: 'Predicciones', icon: '🗂️', description: 'Tabla y descarga CSV con group_predicted', requiresDataset: true, requiresTraining: true }
   ]
 
   return (
-    <div className="sidebar">
+    <div className="sidebar scrollable">
       <div className="sidebar-header">
         <div className="logo">
           <span className="logo-icon">🧬</span>
@@ -79,14 +42,14 @@ export default function Sidebar({ activeSection, onSectionChange, hasDataset, is
           {menuItems.map((item) => (
             <li key={item.id} className="nav-item">
               <button
-                className={`nav-button ${activeSection === item.id ? 'active' : ''} ${(!hasDataset && item.requiresDataset) || (!isModelTrained && item.requiresTraining) ? 'disabled' : ''}`}
+                className={`nav-button ${activeSection === item.id ? 'active' : ''} ${(!hasDataset && item.requiresDataset) || (!isModelTrained && (item as any).requiresTraining) ? 'disabled' : ''}`}
                 onClick={() => onSectionChange(item.id)}
                 title={item.description}
-                disabled={(!hasDataset && item.requiresDataset) || (!isModelTrained && item.requiresTraining)}
+                disabled={(!hasDataset && item.requiresDataset) || (!isModelTrained && (item as any).requiresTraining)}
               >
                 <span className="nav-icon">{item.icon}</span>
                 <span className="nav-label">{item.label}</span>
-                {((!hasDataset && item.requiresDataset) || (!isModelTrained && item.requiresTraining)) && (
+                {((!hasDataset && item.requiresDataset) || (!isModelTrained && (item as any).requiresTraining)) && (
                   <span className="lock-icon">🔒</span>
                 )}
               </button>
@@ -138,12 +101,16 @@ export default function Sidebar({ activeSection, onSectionChange, hasDataset, is
           </div>
         )}
       </div>
-      
+
+      {/* Reset section */}
       <div className="sidebar-footer">
         <div className="status-indicator">
           <div className={`status-dot ${hasDataset ? 'online' : 'offline'}`}></div>
           <span>{hasDataset ? 'Sistema Activo' : 'Sistema Inactivo'}</span>
         </div>
+        <button className="reset-button" onClick={onReset} title="Reiniciar estado (borra dataset y entrenamiento)">
+          ♻️ Reiniciar
+        </button>
       </div>
     </div>
   )

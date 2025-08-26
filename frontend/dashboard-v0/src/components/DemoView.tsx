@@ -195,6 +195,23 @@ export default function DemoView({ onBack }: DemoViewProps) {
             </div>
           </div>
         </div>
+        
+        {/* Botón para ver predicciones */}
+        <div className="model-actions">
+          <button
+            className="view-predictions-btn"
+            onClick={() => {
+              const url = new URL(window.location.href)
+              url.searchParams.set('view', 'predictions')
+              window.open(url.toString(), '_blank')
+            }}
+          >
+            📊 Ver Todas las Predicciones
+          </button>
+          <p className="action-description">
+            Revisa cómo el modelo clasificó cada artículo del dataset y descarga los resultados con la columna group_predicted
+          </p>
+        </div>
       </div>
 
       {/* Ejemplos de uso */}
