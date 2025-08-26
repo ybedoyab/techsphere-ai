@@ -1,6 +1,6 @@
 # 🧬 Challenge de Clasificación Biomédica con IA
 
-▶️ [Informe técnico final en PDF (TechSphere_AI.pdf)](https://github.com/ybedoyab/techsphere-ai/blob/main/TechSphere_AI.pdf)
+## ▶️ [Informe técnico final en PDF (TechSphere_AI.pdf)](https://github.com/ybedoyab/techsphere-ai/blob/main/TechSphere_AI.pdf)
 <img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/a92f021f-55c7-4195-adf0-9ce1ccf84086" />
 
 
