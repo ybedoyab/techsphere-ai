@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 import threading
 import time
+from datetime import datetime
 
 from src.api.upload_handler import upload_handler
 from src.utils.logger import LoggerFactory
@@ -101,35 +102,179 @@ def start_training():
             'error': None
         })
         
-        # Simular entrenamiento en background
+        # Entrenamiento real del modelo en background
         def train_model():
             global training_status
             
-            steps = [
-                ('Cargando datos...', 10),
-                ('Preprocesando texto...', 25),
-                ('Extrayendo características...', 40),
-                ('Entrenando modelo...', 70),
-                ('Evaluando resultados...', 90),
-                ('Guardando modelo...', 100)
-            ]
-            
-            for step, progress in steps:
-                training_status['current_step'] = step
-                training_status['progress'] = progress
+            try:
+                # Paso 1: Cargar datos
+                training_status.update({
+                    'current_step': 'Cargando datos...',
+                    'progress': 10,
+                    'logs': [{'timestamp': datetime.now().strftime('%H:%M:%S'), 'step': 'Cargando datos...', 'progress': 10}]
+                })
                 
-                # Agregar log
-                log_entry = {
-                    'timestamp': time.strftime('%H:%M:%S'),
-                    'step': step,
-                    'progress': progress
+                # Cargar dataset desde el archivo subido más recientemente
+                from src.data.repository import CSVDataSource
+                import pandas as pd
+                import numpy as np
+                from sklearn.model_selection import train_test_split
+                from sklearn.feature_extraction.text import TfidfVectorizer
+                from sklearn.linear_model import LogisticRegression
+                from sklearn.metrics import accuracy_score, precision_recall_fscore_support, confusion_matrix
+                import joblib
+                import os
+                
+                # Buscar el dataset más reciente
+                data_dir = Path("data/raw")
+                csv_files = list(data_dir.glob("*.csv"))
+                if not csv_files:
+                    raise Exception("No se encontraron archivos CSV para entrenar")
+                
+                latest_file = max(csv_files, key=os.path.getctime)
+                print(f"📁 Dataset encontrado: {latest_file}")
+                print(f"📅 Última modificación: {datetime.fromtimestamp(os.path.getctime(latest_file))}")
+                
+                data_source = CSVDataSource(str(latest_file), separator=";")
+                data = data_source.load_data()
+                print(f"📊 Dataset cargado: {data.shape}")
+                print(f"📋 Columnas disponibles: {list(data.columns)}")
+                print(f"🔢 Primeras 3 filas:")
+                print(data.head(3).to_string())
+                
+                # Paso 2: Preprocesamiento
+                training_status.update({
+                    'current_step': 'Preprocesando texto...',
+                    'progress': 25,
+                    'logs': training_status['logs'] + [{'timestamp': datetime.now().strftime('%H:%M:%S'), 'step': 'Preprocesando texto...', 'progress': 25}]
+                })
+                
+                # Combinar título y abstract
+                data['combined_text'] = data['title'] + ' ' + data['abstract']
+                
+                # Limpiar texto
+                data['combined_text'] = data['combined_text'].str.lower()
+                data['combined_text'] = data['combined_text'].str.replace(r'[^\w\s]', ' ', regex=True)
+                
+                # Paso 3: Extraer características
+                training_status.update({
+                    'current_step': 'Extrayendo características...',
+                    'progress': 40,
+                    'logs': training_status['logs'] + [{'timestamp': datetime.now().strftime('%H:%M:%S'), 'step': 'Extrayendo características...', 'progress': 40}]
+                })
+                
+                # Vectorizar texto usando TF-IDF
+                vectorizer = TfidfVectorizer(max_features=5000, stop_words='english')
+                X = vectorizer.fit_transform(data['combined_text'])
+                
+                print(f"🔍 Vectorización TF-IDF completada. Forma de X: {X.shape}")
+                print(f"📊 Número de características extraídas: {X.shape[1]}")
+                
+                # Preparar etiquetas (tomar solo la primera etiqueta para simplificar)
+                y = data['group'].str.split('|').str[0]
+                print(f"🏷️ Etiquetas preparadas. Número de clases: {y.nunique()}")
+                print(f"📋 Clases únicas: {y.unique().tolist()}")
+                
+                # Dividir en train/test
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+                print(f"✂️ División train/test completada:")
+                print(f"   - X_train: {X_train.shape}")
+                print(f"   - X_test: {X_test.shape}")
+                print(f"   - y_train: {y_train.shape[0]} muestras")
+                print(f"   - y_test: {y_test.shape[0]} muestras")
+                
+                # Paso 4: Entrenar modelo
+                training_status.update({
+                    'current_step': 'Entrenando modelo...',
+                    'progress': 70,
+                    'logs': training_status['logs'] + [{'timestamp': datetime.now().strftime('%H:%M:%S'), 'step': 'Entrenando modelo...', 'progress': 70}]
+                })
+                
+                # Entrenar modelo de regresión logística
+                model = LogisticRegression(max_iter=1000, random_state=42)
+                model.fit(X_train, y_train)
+                
+                # Paso 5: Evaluar resultados
+                training_status.update({
+                    'current_step': 'Evaluando resultados...',
+                    'progress': 90,
+                    'logs': training_status['logs'] + [{'timestamp': datetime.now().strftime('%H:%M:%S'), 'step': 'Evaluando resultados...', 'progress': 90}]
+                })
+                
+                # Predicciones
+                y_pred = model.predict(X_test)
+                print(f"🎯 Predicciones generadas: {len(y_pred)} muestras")
+                
+                # Calcular métricas
+                accuracy = accuracy_score(y_test, y_pred)
+                precision, recall, f1, _ = precision_recall_fscore_support(y_test, y_pred, average='weighted')
+                conf_matrix = confusion_matrix(y_test, y_pred)
+                
+                print(f"📊 Métricas calculadas:")
+                print(f"   - Accuracy: {accuracy:.4f}")
+                print(f"   - Precision: {precision:.4f}")
+                print(f"   - Recall: {recall:.4f}")
+                print(f"   - F1-Score: {f1:.4f}")
+                print(f"   - Matriz de confusión: {conf_matrix.shape}")
+                
+                # Obtener clases únicas de y (no de y.unique() que puede causar problemas)
+                unique_classes = sorted(y.unique().tolist())
+                print(f"🏷️ Clases para matriz de confusión: {unique_classes}")
+                
+                # Paso 6: Guardar modelo y resultados
+                training_status.update({
+                    'current_step': 'Guardando modelo...',
+                    'progress': 100,
+                    'logs': training_status['logs'] + [{'timestamp': datetime.now().strftime('%H:%M:%S'), 'step': 'Guardando modelo...', 'progress': 100}]
+                })
+                
+                # Crear directorio para modelos si no existe
+                models_dir = Path("models")
+                models_dir.mkdir(exist_ok=True)
+                
+                # Guardar modelo
+                model_path = models_dir / "medical_classifier.joblib"
+                joblib.dump(model, model_path)
+                
+                # Guardar vectorizer
+                vectorizer_path = models_dir / "tfidf_vectorizer.joblib"
+                joblib.dump(vectorizer, vectorizer_path)
+                
+                # Guardar métricas
+                metrics = {
+                    'accuracy': float(accuracy),
+                    'precision': float(precision),
+                    'recall': float(recall),
+                    'f1_score': float(f1),
+                    'confusion_matrix': conf_matrix.tolist(),
+                    'classes': unique_classes, # Usar las clases únicas obtenidas
+                    'training_samples': X_train.shape[0],
+                    'test_samples': X_test.shape[0]
                 }
-                training_status['logs'].append(log_entry)
                 
-                time.sleep(2)  # Simular trabajo
-            
-            training_status['is_running'] = False
-            training_status['current_step'] = 'Entrenamiento completado'
+                metrics_path = models_dir / "training_metrics.json"
+                with open(metrics_path, 'w', encoding='utf-8') as f:
+                    json.dump(metrics, f, ensure_ascii=False, indent=2)
+                
+                # Actualizar estado final
+                training_status.update({
+                    'is_running': False,
+                    'current_step': 'Entrenamiento completado',
+                    'progress': 100,
+                    'logs': training_status['logs'] + [{'timestamp': datetime.now().strftime('%H:%M:%S'), 'step': 'Entrenamiento completado', 'progress': 100}]
+                })
+                
+                print(f"✅ Modelo entrenado y guardado en {model_path}")
+                print(f"📊 Métricas: Accuracy={accuracy:.3f}, F1={f1:.3f}")
+                
+            except Exception as e:
+                print(f"❌ Error en entrenamiento: {e}")
+                training_status.update({
+                    'is_running': False,
+                    'current_step': f'Error: {str(e)}',
+                    'progress': 0,
+                    'error': str(e)
+                })
         
         # Ejecutar en thread separado
         thread = threading.Thread(target=train_model)
@@ -203,6 +348,52 @@ def get_dataset_info():
             'exists': False,
             'message': f'Error analizando dataset: {str(e)}'
         }), 500
+
+@app.route('/api/model-metrics', methods=['GET'])
+def get_model_metrics():
+    """Obtener métricas del modelo entrenado"""
+    try:
+        metrics_path = Path("models/training_metrics.json")
+        if not metrics_path.exists():
+            return jsonify({'error': 'No hay métricas disponibles. Entrena el modelo primero.'}), 404
+        
+        with open(metrics_path, 'r', encoding='utf-8') as f:
+            metrics = json.load(f)
+        
+        return jsonify({
+            'success': True,
+            'metrics': {
+                'accuracy': metrics['accuracy'],
+                'precision': metrics['precision'],
+                'recall': metrics['recall'],
+                'f1_score': metrics['f1_score'],
+                'training_samples': metrics['training_samples'],
+                'test_samples': metrics['test_samples']
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error obteniendo métricas: {str(e)}'}), 500
+
+@app.route('/api/confusion-matrix', methods=['GET'])
+def get_confusion_matrix():
+    """Obtener matriz de confusión del modelo entrenado"""
+    try:
+        metrics_path = Path("models/training_metrics.json")
+        if not metrics_path.exists():
+            return jsonify({'error': 'No hay matriz de confusión disponible. Entrena el modelo primero.'}), 404
+        
+        with open(metrics_path, 'r', encoding='utf-8') as f:
+            metrics = json.load(f)
+        
+        return jsonify({
+            'success': True,
+            'confusion_matrix': metrics['confusion_matrix'],
+            'classes': metrics['classes']
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error obteniendo matriz de confusión: {str(e)}'}), 500
 
 if __name__ == '__main__':
     print("🚀 Iniciando servidor API...")

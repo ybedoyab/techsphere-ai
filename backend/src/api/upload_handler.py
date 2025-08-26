@@ -32,8 +32,29 @@ class UploadHandler:
     def validate_csv_structure(self, file_path: str) -> Dict[str, Any]:
         """Validar la estructura del CSV subido"""
         try:
-            # Leer el CSV
-            df = pd.read_csv(file_path)
+            # Intentar detectar el separador automáticamente
+            separators = [',', ';', '\t', '|']
+            df = None
+            detected_separator = None
+            
+            for sep in separators:
+                try:
+                    # Leer una muestra para detectar el separador
+                    sample_df = pd.read_csv(file_path, sep=sep, nrows=5)
+                    if len(sample_df.columns) >= 3:  # Debe tener al menos 3 columnas
+                        df = pd.read_csv(file_path, sep=sep)
+                        detected_separator = sep
+                        break
+                except Exception as e:
+                    self.logger.debug(f"Separador {sep} falló: {e}")
+                    continue
+            
+            if df is None:
+                return {
+                    'valid': False,
+                    'error': 'No se pudo detectar el separador del CSV. Intenta con comas (,), punto y coma (;), tabulaciones o pipes (|)',
+                    'separators_tried': separators
+                }
             
             # Verificar columnas requeridas
             required_columns = ['title', 'abstract', 'group']
@@ -42,8 +63,9 @@ class UploadHandler:
             if missing_columns:
                 return {
                     'valid': False,
-                    'error': f'Columnas faltantes: {missing_columns}',
-                    'columns_found': list(df.columns)
+                    'error': f'Columnas faltantes: {missing_columns}. Columnas encontradas: {list(df.columns)}',
+                    'columns_found': list(df.columns),
+                    'separator_detected': detected_separator
                 }
             
             # Verificar que no esté vacío
@@ -54,7 +76,11 @@ class UploadHandler:
                 }
             
             # Verificar tipos de datos
-            if not all(df['title'].dtype == 'object' and df['abstract'].dtype == 'object' and df['group'].dtype == 'object'):
+            title_is_object = df['title'].dtype == 'object'
+            abstract_is_object = df['abstract'].dtype == 'object'
+            group_is_object = df['group'].dtype == 'object'
+            
+            if not (title_is_object and abstract_is_object and group_is_object):
                 return {
                     'valid': False,
                     'error': 'Las columnas title, abstract y group deben ser texto'
@@ -62,20 +88,25 @@ class UploadHandler:
             
             # Verificar valores nulos
             null_counts = df[required_columns].isnull().sum()
-            if null_counts.any():
+            has_nulls = null_counts.astype(int).sum() > 0
+            
+            if has_nulls:
                 return {
                     'valid': False,
-                    'error': f'Valores nulos encontrados: {null_counts.to_dict()}'
+                    'error': f'Valores nulos encontrados: {null_counts.to_dict()}',
+                    'null_details': null_counts.to_dict()
                 }
             
             return {
                 'valid': True,
                 'total_records': len(df),
                 'columns': list(df.columns),
+                'separator_detected': detected_separator,
                 'sample_data': df.head(3).to_dict('records')
             }
             
         except Exception as e:
+            self.logger.error(f"Error validando CSV: {e}")
             return {
                 'valid': False,
                 'error': f'Error al validar CSV: {str(e)}'
@@ -126,13 +157,14 @@ class UploadHandler:
     def _analyze_dataset(self, dataset_path: Path) -> Dict[str, Any]:
         """Analizar el dataset subido"""
         try:
-            # Cargar datos
-            repo = DataRepository()
-            data = repo.load_data(str(dataset_path))
+            # Cargar datos usando CSVDataSource
+            from ..data.repository import CSVDataSource
+            data_source = CSVDataSource(str(dataset_path), separator=";")
+            data = data_source.load_data()
             
             # Análisis básico
             basic_info = {
-                'total_records': len(data),
+                'total_records': int(len(data)),
                 'columns': list(data.columns),
                 'memory_usage': f"{data.memory_usage(deep=True).sum() / 1024 / 1024:.2f} MB"
             }
@@ -172,17 +204,17 @@ class UploadHandler:
             
             # Contar etiquetas únicas
             unique_labels = set(all_labels)
-            label_counts = {label: all_labels.count(label) for label in unique_labels}
+            label_counts = {label: int(all_labels.count(label)) for label in unique_labels}
             
             # Calcular porcentajes
             total = len(group_series)
-            label_percentages = {label: (count / total) * 100 for label, count in label_counts.items()}
+            label_percentages = {label: float((count / total) * 100) for label, count in label_counts.items()}
             
             return {
-                'unique_labels': len(unique_labels),
+                'unique_labels': int(len(unique_labels)),
                 'label_counts': label_counts,
                 'label_percentages': label_percentages,
-                'total_records': total
+                'total_records': int(total)
             }
             
         except Exception as e:
@@ -196,16 +228,16 @@ class UploadHandler:
             
             return {
                 'title_stats': {
-                    'mean': title_lengths.mean(),
-                    'std': title_lengths.std(),
-                    'min': title_lengths.min(),
-                    'max': title_lengths.max()
+                    'mean': float(title_lengths.mean()),
+                    'std': float(title_lengths.std()),
+                    'min': int(title_lengths.min()),
+                    'max': int(title_lengths.max())
                 },
                 'abstract_stats': {
-                    'mean': abstract_lengths.mean(),
-                    'std': abstract_lengths.std(),
-                    'min': abstract_lengths.min(),
-                    'max': abstract_lengths.max()
+                    'mean': float(abstract_lengths.mean()),
+                    'std': float(abstract_lengths.std()),
+                    'min': int(abstract_lengths.min()),
+                    'max': int(abstract_lengths.max())
                 }
             }
             
@@ -229,14 +261,14 @@ class UploadHandler:
             
             # Calcular porcentajes
             domain_percentages = {
-                domain: (count / total_records) * 100 
+                domain: float((count / total_records) * 100) 
                 for domain, count in domain_counts.items()
             }
             
             return {
-                'counts': domain_counts,
+                'counts': {k: int(v) for k, v in domain_counts.items()},
                 'percentages': domain_percentages,
-                'total_domains': len(domain_counts)
+                'total_domains': int(len(domain_counts))
             }
             
         except Exception as e:
